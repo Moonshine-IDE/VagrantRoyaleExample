@@ -20,6 +20,17 @@ Vagrant.configure("2") do |config|
   # within the machine from a port on the host machine and only allow access
   # via 127.0.0.1 to disable public access
   config.vm.network "forwarded_port", guest: GUEST_PORT, host: HOST_PORT, host_ip: "127.0.0.1"
+
+  # OS upgrade - needed for vbguest
+  config.vm.provision "shell", name: "Upgrade Linux so VirtualBox Guest Additions will install", privileged:true, inline: "yum -y upgrade" 
+  
+  #reboot after upgrade
+  #https://superuser.com/questions/1338429/how-do-i-reboot-a-vagrant-guest-from-a-provisioner
+  config.vm.provision :shell do |shell|
+    shell.privileged = true
+    shell.inline = 'echo rebooting'
+    shell.reboot = true
+  end  
   
   ## WORKAROUND for VirtualBox Guest Additions not installing properly - have not tried all of these options yet
   #read this and try to get the Vagrantfile itself to do this
