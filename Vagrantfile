@@ -20,6 +20,43 @@ Vagrant.configure("2") do |config|
   # within the machine from a port on the host machine and only allow access
   # via 127.0.0.1 to disable public access
   config.vm.network "forwarded_port", guest: GUEST_PORT, host: HOST_PORT, host_ip: "127.0.0.1"
+  
+  ## WORKAROUND for VirtualBox Guest Additions not installing properly - have not tried all of these options yet
+  #read this and try to get the Vagrantfile itself to do this
+  #https://github.com/hashicorp/vagrant/issues/8374
+  #From https://gist.github.com/adaroobi/fea2727be6ae3d9c446767f813146f93
+  #
+  #https://www.serverlab.ca/tutorials/virtualization/how-to-auto-upgrade-virtualbox-guest-additions-with-vagrant/
+  #might be able to get this alternate approach to work in the Vagrantfile:
+  #vagrant plugin install vagrant-vbguest
+  #vagrant vbguest --do install --no-cleanup
+  config.vbguest.auto_update = false
+  config.vm.provision "shell", name: "WORKAROUND for VirtualBox Guest Additions.", privileged: true, inline: <<-SHELL
+    VBOX_VERSION_ON_HOST_OS=6.1.30     #This should be set to YOUR host OS release of VirtualBox - use "VBoxManage -v" and trim the "r14..." suffix.
+	
+    rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    #rpm -Uvh http://download-ib01.fedoraproject.org/pub/epel/7/x86_64/Packages/d/dkms-2.6.1-1.el7.noarch.rpm
+    rpm -Uvh https://download-ib01.fedoraproject.org/pub/epel/7/aarch64/Packages/d/dkms-2.7.1-1.el7.noarch.rpm
+	yum -y install wget perl gcc dkms kernel-devel kernel-headers make bzip2
+    wget http://download.virtualbox.org/virtualbox/${VBOX_VERSION_ON_HOST_OS}/VBoxGuestAdditions_${VBOX_VERSION_ON_HOST_OS}.iso
+	
+    mkdir /media/VBoxGuestAdditions
+    mount -o loop,ro VBoxGuestAdditions_${VBOX_VERSION_ON_HOST_OS}.iso /media/VBoxGuestAdditions
+    sh /media/VBoxGuestAdditions/VBoxLinuxAdditions.run
+	#ugh.. this is still no matching kernel version!
+	#https://www.binarytides.com/check-virtualbox-guest-additions-installed-linux-guest/
+	#lsmod | grep -i vbox
+	#https://www.dev2qa.com/how-to-resolve-virtualbox-guest-additions-kernel-headers-not-found-for-target-kernel-error/
+	#https://unix.stackexchange.com/questions/272638/why-cant-i-find-kernel-headers-on-centos-7-when-trying-to-install-virtualbox-gu/505021
+	#https://bugs.centos.org/view.php?id=17845
+    #yum install “kernel-devel-uname-r == $(uname -r)
+	#uname -r; ls /usr/src/kernels/
+	
+    #rm -f VBoxGuestAdditions_${VBOX_VERSION_ON_HOST_OS}.iso
+    #umount /media/VBoxGuestAdditions
+    #mdir /media/VBoxGuestAdditions
+    unset VBOX_VERSION_ON_HOST_OS
+  SHELL
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
