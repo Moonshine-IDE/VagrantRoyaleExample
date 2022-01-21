@@ -2,14 +2,24 @@
 # vi: set ft=ruby :
 
 # Parameters for easy reconfiguration
+# Port to use to access the server on the external host
+HOST_PORT=8086
+
+# Constants - these should not need to change
 # Internal port for server
 GUEST_PORT=8080
-# Port to use to access the server on the external host
-HOST_PORT=8080
 # The directory for the server in the guest
 SERVER_DIR="/home/vagrant/server/"
 # The log file for the server, since it needs to run in the background
 SERVER_LOG_FILE="/home/vagrant/server.log"
+# The host directory for the compiled Royale project
+COMPILED_DIR="bin/js-debug"
+
+
+# Check if the project is compiled
+if !File.exist?("#{COMPILED_DIR}/index.html") then
+  abort "You must compile this project first.  In Moonshine, run Project > Build Project"
+end
 
 Vagrant.configure("2") do |config|
   # Every Vagrant development environment requires a box. You can search for
@@ -19,7 +29,13 @@ Vagrant.configure("2") do |config|
   # Create a forwarded port mapping which allows access to a specific port
   # within the machine from a port on the host machine and only allow access
   # via 127.0.0.1 to disable public access
-  config.vm.network "forwarded_port", guest: GUEST_PORT, host: HOST_PORT, host_ip: "127.0.0.1"
+  if Vagrant::Util::Platform.windows? then
+    # host_ip: "127.0.0.1" fails on Windows, but it looks like a useful security restriction in general
+    # https://www.vagrantup.com/docs/networking/forwarded_ports#host_ip
+    config.vm.network "forwarded_port", guest: GUEST_PORT, host: HOST_PORT
+  else
+    config.vm.network "forwarded_port", guest: GUEST_PORT, host: HOST_PORT, host_ip: "127.0.0.1"
+  end
 
   # This is the solution for VirtualBox Guest Additions used here:  https://github.com/DominoIDP/domino_idp
   # However, I found that this gave a "mount: unknown filesystem type 'vboxsf'" error on the first execution, and then worked after trying "vagrant up" instead.   
@@ -83,7 +99,10 @@ Vagrant.configure("2") do |config|
     # Note that it is possible to use the files in /vagrant instead, but we included this as an example of shared folder support.
     config.vbguest.auto_update = true
     # suggested for CentOS - updates the OS rather than trying to find a version for the current OS.  Reboots the instance.  
-    config.vbguest.installer_options = { allow_kernel_upgrade: true } 
+    if !Vagrant::Util::Platform.windows? then
+      # This option caused problems for Windows, but it is required for at least macOS
+      config.vbguest.installer_options = { allow_kernel_upgrade: true } 
+    end
   else
     abort "Missing vbguest plugin.  Install using 'vagrant plugin install vagrant-vbguest'"
   end
