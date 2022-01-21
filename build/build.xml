@@ -72,4 +72,12 @@
 		            <arg value="${MAIN_FILE_NAME}" />
 	        	</exec>
     </target>
+    
+    <!-- Tool for debugging the environment variables. -->
+    	<target name="checkEnv" >
+		<echo message="ANT_HOME=${env.ANT_HOME}" />
+		<echo message="FLEX_HOME=${env.FLEX_HOME}" />
+		<echo message="JAVA_HOME=${env.JAVA_HOME}" />
+		<echo message="PATH=${env.PATH}" />
+	</target>
 </project>
