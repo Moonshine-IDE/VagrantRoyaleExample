@@ -116,28 +116,44 @@ Vagrant.configure("2") do |config|
   # Install some dependencies
   config.vm.provision "shell", privileged: true, inline: <<-SHELL
     yum -y install python
-    # used to run the server in the background
-    yum -y install screen
+    
+    # Debugging tools
+    yum install -y telnet
   SHELL
+  
+  # Define a basic service for the Python server
+  # https://linuxconfig.org/how-to-write-a-simple-systemd-service
+  config.vm.provision "shell", privileged: true, inline: <<-SHELL
+# write the service
+echo "[Unit]
+Description=Start a minimal Python server to run the demo application.
+
+[Service]
+Type=simple
+ExecStart=/bin/python -m SimpleHTTPServer #{GUEST_PORT} 2>&1 | tee #{SERVER_LOG_FILE}
+WorkingDirectory=#{SERVER_DIR}
+
+[Install]
+WantedBy=multi-user.target
+" > /etc/systemd/system/demo_server.service
+
+# setup permissions
+chmod 755 /etc/systemd/system/demo_server.service
+chown root:root /etc/systemd/system/demo_server.service
+  SHELL
+  
 
   # Kill the server if it is already running. This is useful for reloading the server with `vagrant up` or `vagrant reload`
   config.vm.provision "shell",privileged:true,run:"always",inline: "pkill python || true"
+  
+  # Start as service
+  config.vm.provision "shell",privileged:false,run:"always",inline: "sudo systemctl start demo_server.service"
 
   # Notify the user how to access the server
   config.vm.provision "shell",privileged:false,run:"always",inline: <<-SHELL
     echo '#### Server is starting. See log at #{SERVER_LOG_FILE} ####'
     echo '#### Open the application at:  http://127.0.0.1:#{HOST_PORT}/index.html ####'
   SHELL
-
-  # Start the server in the shared directory.
-  # `run:"always"` will restart the server when rerunning `vagrant up` or `vagrant reload`
-  config.vm.provision "shell",privileged:false,run:"always",inline: "cd #{SERVER_DIR}; python -m SimpleHTTPServer #{GUEST_PORT} 2>&1 | tee #{SERVER_LOG_FILE}"
-  # I tried to start the server in the background instead, but the server was killed with no error.  
-  #config.vm.provision "shell",privileged:false,run:"always",inline: "cd #{SERVER_DIR}; python -m SimpleHTTPServer #{GUEST_PORT} 2>&1 | tee #{SERVER_LOG_FILE} & sleep 1"
-  #config.vm.provision "shell",privileged:false,run:"always",inline: "screen -dm bash -c 'cd #{SERVER_DIR}; python -m SimpleHTTPServer #{GUEST_PORT} 2>&1 | tee #{SERVER_LOG_FILE} &'"
-
-  # Background start only:  give the server a little time to start and then print the server output
-  #config.vm.provision "shell",privileged:false,run:"always",inline: "sleep 5; cat #{SERVER_LOG_FILE}"
 
 
 end
